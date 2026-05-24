@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Loss Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --border-color: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-color: #3b82f6;
+            --success-color: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --danger-color: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card h3 {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+
+        .card .value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .value.positive { color: var(--success-color); }
+        .value.negative { color: var(--danger-color); }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            gap: 1rem;
+        }
+
+        .search-bar {
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            background-color: var(--surface-color);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-bar input:focus {
+            border-color: var(--accent-color);
+        }
+
+        .table-container {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            overflow-x: auto;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: rgba(0, 0, 0, 0.2);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        th:hover {
+            color: var(--text-primary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-purchase {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .badge-sale {
+            background-color: rgba(168, 85, 247, 0.1);
+            color: #c084fc;
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+
+        .pl-positive {
+            color: var(--success-color);
+            background-color: var(--success-bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+        }
+
+        .pl-negative {
+            color: var(--danger-color);
+            background-color: var(--danger-bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+        }
+        
+        .item-details {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .item-name {
+            font-weight: 600;
+        }
+        
+        .item-game {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Steam Market Analysis</h1>
+            <p style="color: var(--text-secondary)">Profit and Loss Visualizer for your Steam Inventory</p>
+        </header>
+
+        <div class="summary-grid">
+            <div class="card">
+                <h3>Total Spent</h3>
+                <div class="value">₹{{ "%.2f"|format(summary.total_spent) }}</div>
+            </div>
+            <div class="card">
+                <h3>Total Earned</h3>
+                <div class="value">₹{{ "%.2f"|format(summary.total_earned) }}</div>
+            </div>
+            <div class="card">
+                <h3>Overall P/L Score</h3>
+                <div class="value {% if summary.overall_pl > 0 %}positive{% elif summary.overall_pl < 0 %}negative{% endif %}">
+                    {% if summary.overall_pl > 0 %}+{% endif %}₹{{ "%.2f"|format(summary.overall_pl) }}
+                </div>
+            </div>
+            <div class="card">
+                <h3>Transactions Analyzed</h3>
+                <div class="value">{{ summary.total_transactions }}</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search items, games, or conditions...">
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)">Item Name ↕</th>
+                        <th onclick="sortTable(1)">Date ↕</th>
+                        <th onclick="sortTable(2)">Type ↕</th>
+                        <th onclick="sortTable(3)">Tx Price ↕</th>
+                        <th onclick="sortTable(4)">Current Price ↕</th>
+                        <th onclick="sortTable(5)">P/L (₹) ↕</th>
+                        <th onclick="sortTable(6)">P/L (%) ↕</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    {% for item in results %}
+                    <tr>
+                        <td>
+                            <div class="item-details">
+                                <span class="item-name">{{ item.market_name }}</span>
+                                <span class="item-game">{{ item.game_name }}</span>
+                            </div>
+                        </td>
+                        <td>{{ item.date }}</td>
+                        <td>
+                            <span class="badge {% if item.type == 'purchase' %}badge-purchase{% else %}badge-sale{% endif %}">
+                                {{ item.type }}
+                            </span>
+                        </td>
+                        <td>₹{{ "%.2f"|format(item.tx_price) }}</td>
+                        <td>₹{{ "%.2f"|format(item.current_price) }}</td>
+                        <td>
+                            {% if item.pl_amount != 0 %}
+                            <span class="{% if item.pl_amount > 0 %}pl-positive{% else %}pl-negative{% endif %}">
+                                {% if item.pl_amount > 0 %}+{% endif %}₹{{ "%.2f"|format(item.pl_amount) }}
+                            </span>
+                            {% else %}
+                            <span style="color: var(--text-secondary)">₹0.00</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.pl_percent != 0 %}
+                            <span class="{% if item.pl_percent > 0 %}pl-positive{% else %}pl-negative{% endif %}">
+                                {% if item.pl_percent > 0 %}+{% endif %}{{ "%.2f"|format(item.pl_percent) }}%
+                            </span>
+                            {% else %}
+                            <span style="color: var(--text-secondary)">0.00%</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('keyup', function() {
+            let filter = this.value.toLowerCase();
+            let rows = document.getElementById('tableBody').getElementsByTagName('tr');
+            
+            for (let row of rows) {
+                let text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            }
+        });
+
+        // Simple table sorting
+        function sortTable(n) {
+            let table = document.getElementById("dataTable");
+            let rows = table.rows;
+            let switching = true;
+            let dir = "asc";
+            let switchcount = 0;
+            
+            while (switching) {
+                switching = false;
+                let b = table.getElementsByTagName("TR");
+                for (let i = 1; i < (b.length - 1); i++) {
+                    let shouldSwitch = false;
+                    let x = b[i].getElementsByTagName("TD")[n];
+                    let y = b[i + 1].getElementsByTagName("TD")[n];
+                    
+                    let xContent = x.textContent.replace(/[₹\+,%\s]/g, '').toLowerCase();
+                    let yContent = y.textContent.replace(/[₹\+,%\s]/g, '').toLowerCase();
+                    
+                    let xVal = isNaN(parseFloat(xContent)) ? xContent : parseFloat(xContent);
+                    let yVal = isNaN(parseFloat(yContent)) ? yContent : parseFloat(yContent);
+
+                    if (dir == "asc") {
+                        if (xVal > yVal) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else if (dir == "desc") {
+                        if (xVal < yVal) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                }
+                if (shouldSwitch) {
+                    b[i].parentNode.insertBefore(b[i + 1], b[i]);
+                    switching = true;
+                    switchcount++;
+                } else {
+                    if (switchcount == 0 && dir == "asc") {
+                        dir = "desc";
+                        switching = true;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
