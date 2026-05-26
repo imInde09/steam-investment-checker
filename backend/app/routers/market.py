@@ -1,5 +1,6 @@
 import uuid
 import asyncio
+import datetime
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from ..services.parser import parse_csv_content
@@ -8,6 +9,8 @@ from ..services.analyzer import analyze_data
 from ..models.schemas import UploadResponse, StatusResponse, AnalysisResult
 from jinja2 import Environment, FileSystemLoader
 import os
+import json
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 router = APIRouter()
 
@@ -30,6 +33,16 @@ async def upload_csv(background_tasks: BackgroundTasks, file: UploadFile = File(
         unique_items.add((tx['app_id'], tx['market_name']))
         
     job_id = str(uuid.uuid4())
+    upload_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    
+    job_progress[job_id] = {
+        "status": "pending",
+        "total": len(unique_items),
+        "fetched": 0,
+        "prices": {},
+        "transactions": transactions,
+        "error": None
+    }
     
     async def process_job():
         prices = await fetch_prices_async(job_id, unique_items)
@@ -38,6 +51,22 @@ async def upload_csv(background_tasks: BackgroundTasks, file: UploadFile = File(
             "summary": summary,
             "items": results
         }
+        
+        try:
+            data_dir = "/app/data/runs"
+            os.makedirs(data_dir, exist_ok=True)
+            file_path = os.path.join(data_dir, f"{upload_time}_{job_id}.json")
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump({
+                    "job_id": job_id,
+                    "upload_time": upload_time,
+                    "summary": summary,
+                    "items": results,
+                    "transactions": transactions
+                }, f, ensure_ascii=False, indent=2)
+            print(f"Saved job to {file_path}")
+        except Exception as e:
+            print(f"Error saving job to PVC: {e}")
         
     background_tasks.add_task(process_job)
     
@@ -64,6 +93,54 @@ async def get_status(job_id: str):
         fetched_items=prog["fetched"],
         error=prog.get("error")
     )
+
+@router.get("/api/stream/{job_id}")
+async def stream_status(job_id: str):
+    if job_id not in job_progress:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    async def event_generator():
+        while True:
+            if job_id not in job_progress:
+                break
+                
+            prog = job_progress[job_id]
+            progress_pct = (prog["fetched"] / prog["total"]) * 100 if prog["total"] > 0 else 0
+            
+            data = {
+                "status": prog["status"],
+                "progress": progress_pct,
+                "total_items": prog["total"],
+                "fetched_items": prog["fetched"],
+                "error": prog.get("error")
+            }
+            
+            if prog["status"] == "completed":
+                if job_id in job_results:
+                    res = job_results[job_id]
+                    data["results"] = {
+                        "summary": res["summary"],
+                        "items": res["items"]
+                    }
+                yield f"data: {json.dumps(data)}\n\n"
+                break
+            elif prog["status"] == "error":
+                yield f"data: {json.dumps(data)}\n\n"
+                break
+            elif prog["status"] == "processing":
+                if "transactions" in prog and "prices" in prog:
+                    # Only show items that have been fetched so far
+                    fetched_txs = [tx for tx in prog["transactions"] if (tx['app_id'], tx['market_name']) in prog["prices"]]
+                    res_items, res_summary = analyze_data(fetched_txs, prog["prices"])
+                    data["results"] = {
+                        "summary": res_summary,
+                        "items": res_items
+                    }
+                
+            yield f"data: {json.dumps(data)}\n\n"
+            await asyncio.sleep(1)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.get("/api/results/{job_id}", response_model=AnalysisResult)
 async def get_results(job_id: str):

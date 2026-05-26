@@ -16,13 +16,17 @@ class StatusResponse(BaseModel):
     error: Optional[str] = None
 
 class TransactionItem(BaseModel):
+    qty: int = 1
     item_name: str
     market_name: str
     app_id: str
     game_name: str
-    date: str
     type: str
-    tx_price: float
+    buy_date: Optional[str] = None
+    sell_date: Optional[str] = None
+    buy_price: Optional[float] = None
+    sell_price: Optional[float] = None
+    margin: Optional[float] = None
     current_price: float
     pl_amount: float
     pl_percent: float

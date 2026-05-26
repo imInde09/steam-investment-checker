@@ -10,13 +10,22 @@ async def fetch_prices_async(job_id: str, unique_items: Set[Tuple[str, str]]) ->
     prices = {}
     total = len(unique_items)
     
-    job_progress[job_id] = {
-        "status": "processing",
-        "total": total,
-        "fetched": 0,
-        "prices": prices,
-        "error": None
-    }
+    if job_id in job_progress:
+        job_progress[job_id].update({
+            "status": "processing",
+            "total": total,
+            "fetched": 0,
+            "prices": prices,
+            "error": None
+        })
+    else:
+        job_progress[job_id] = {
+            "status": "processing",
+            "total": total,
+            "fetched": 0,
+            "prices": prices,
+            "error": None
+        }
     
     for i, (app_id, market_name) in enumerate(unique_items):
         encoded_name = urllib.parse.quote(market_name)

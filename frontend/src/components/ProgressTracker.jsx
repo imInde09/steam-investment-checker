@@ -8,27 +8,37 @@ const ProgressTracker = ({ jobId, onComplete }) => {
   const [stats, setStats] = useState({ fetched: 0, total: 0 });
 
   useEffect(() => {
-    let interval;
-    
-    const checkStatus = async () => {
-      try {
-        const response = await apiClient.get(`/api/status/${jobId}`);
-        const data = response.data;
-        
+    let eventSource;
+    try {
+      const url = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/stream/${jobId}`;
+      eventSource = new EventSource(url);
+
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
         setProgress(data.progress);
         setStatus(data.status);
         setStats({ fetched: data.fetched_items, total: data.total_items });
-        
+
         if (data.status === 'completed') {
-          clearInterval(interval);
-          fetchResults();
+          eventSource.close();
+          if (data.results) {
+             onComplete(data.results);
+          } else {
+             // Fallback if results are not in the stream payload
+             fetchResults();
+          }
         } else if (data.status === 'error') {
-          clearInterval(interval);
+          eventSource.close();
         }
-      } catch (err) {
-        console.error("Status check failed", err);
-      }
-    };
+      };
+
+      eventSource.onerror = (error) => {
+        console.error("EventSource failed:", error);
+        eventSource.close();
+      };
+    } catch (err) {
+      console.error("Failed to connect to stream", err);
+    }
     
     const fetchResults = async () => {
       try {
@@ -39,10 +49,11 @@ const ProgressTracker = ({ jobId, onComplete }) => {
       }
     };
 
-    interval = setInterval(checkStatus, 2000);
-    checkStatus();
-    
-    return () => clearInterval(interval);
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
   }, [jobId, onComplete]);
 
   return (

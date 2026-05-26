@@ -1,0 +1,37 @@
+apiVersion: skaffold/v4beta7
+kind: Config
+
+metadata:
+  name: steam-investment-checker
+
+build:
+  local:
+    push: false
+    concurrency: 1
+
+  artifacts:
+    - image: backend
+      context: backend
+      docker:
+        dockerfile: Dockerfile
+
+    - image: frontend
+      context: frontend
+      docker:
+        dockerfile: Dockerfile
+
+manifests:
+  kustomize:
+    paths:
+      - k8s/overlays/local
+
+portForward:
+  - resourceType: service
+    resourceName: backend
+    port: 8000
+    localPort: 8000
+
+  - resourceType: service
+    resourceName: frontend
+    port: 80
+    localPort: 3000

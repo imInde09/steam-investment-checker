@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steam Loss Visualizer</title>
+    <title>Steam Inventory Analyzer</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -215,8 +215,8 @@
 <body>
     <div class="container">
         <header>
-            <h1>Steam Market Analysis</h1>
-            <p style="color: var(--text-secondary)">Profit and Loss Visualizer for your Steam Inventory</p>
+            <h1>Steam Inventory Analyzer</h1>
+            <p style="color: var(--text-secondary)">Profit and Loss analyzer for your Steam Inventory</p>
         </header>
 
         <div class="summary-grid">
@@ -250,39 +250,49 @@
             <table id="dataTable">
                 <thead>
                     <tr>
-                        <th onclick="sortTable(0)">Item Name ↕</th>
-                        <th onclick="sortTable(1)">Date ↕</th>
-                        <th onclick="sortTable(2)">Type ↕</th>
-                        <th onclick="sortTable(3)">Tx Price ↕</th>
-                        <th onclick="sortTable(4)">Current Price ↕</th>
-                        <th onclick="sortTable(5)">P/L (₹) ↕</th>
-                        <th onclick="sortTable(6)">P/L (%) ↕</th>
+                        <th>Qty</th>
+                        <th onclick="sortTable(1)">Item Name ↕</th>
+                        <th onclick="sortTable(2)">Buy Date ↕</th>
+                        <th onclick="sortTable(3)">Sell Date ↕</th>
+                        <th onclick="sortTable(4)">Status ↕</th>
+                        <th onclick="sortTable(5)">Buy Price ↕</th>
+                        <th onclick="sortTable(6)">Sell Price ↕</th>
+                        <th onclick="sortTable(7)">Current ↕</th>
+                        <th onclick="sortTable(8)">Margin (₹) ↕</th>
+                        <th onclick="sortTable(9)">P/L (%) ↕</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
                     {% for item in results %}
                     <tr>
+                        <td><strong>{{ item.qty }}x</strong></td>
                         <td>
-                            <div class="item-details">
+                            <div class="item-name-cell">
                                 <span class="item-name">{{ item.market_name }}</span>
                                 <span class="item-game">{{ item.game_name }}</span>
                             </div>
                         </td>
-                        <td>{{ item.date }}</td>
+                        <td>{{ item.buy_date or 'N/A' }}</td>
+                        <td>{{ item.sell_date or 'N/A' }}</td>
                         <td>
-                            <span class="badge {% if item.type == 'purchase' %}badge-purchase{% else %}badge-sale{% endif %}">
-                                {{ item.type }}
+                            <span class="badge {% if item.type == 'matched' %}badge-purchase{% elif item.type == 'purchase_only' %}badge-purchase{% else %}badge-sale{% endif %}">
+                                {{ item.type|replace('_', ' ') }}
                             </span>
                         </td>
-                        <td>₹{{ "%.2f"|format(item.tx_price) }}</td>
+                        <td>{% if item.buy_price is not none %}₹{{ "%.2f"|format(item.buy_price) }}{% else %}N/A{% endif %}</td>
+                        <td>{% if item.sell_price is not none %}₹{{ "%.2f"|format(item.sell_price) }}{% else %}N/A{% endif %}</td>
                         <td>₹{{ "%.2f"|format(item.current_price) }}</td>
                         <td>
-                            {% if item.pl_amount != 0 %}
-                            <span class="{% if item.pl_amount > 0 %}pl-positive{% else %}pl-negative{% endif %}">
-                                {% if item.pl_amount > 0 %}+{% endif %}₹{{ "%.2f"|format(item.pl_amount) }}
-                            </span>
+                            {% if item.margin is not none %}
+                                {% if item.margin != 0 %}
+                                <span class="{% if item.margin > 0 %}pl-positive{% else %}pl-negative{% endif %}">
+                                    {% if item.margin > 0 %}+{% endif %}₹{{ "%.2f"|format(item.margin) }}
+                                </span>
+                                {% else %}
+                                <span style="color: var(--text-secondary)">₹0.00</span>
+                                {% endif %}
                             {% else %}
-                            <span style="color: var(--text-secondary)">₹0.00</span>
+                                N/A
                             {% endif %}
                         </td>
                         <td>
